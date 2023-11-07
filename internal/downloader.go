@@ -26,6 +26,20 @@ type Downloader struct {
 	logger logging.Logger
 }
 
+// DefaultBinDir returns the default bin directory to install Godot to for the given target OS.
+func DefaultBinDir(targetOS TargetOS) string {
+	switch targetOS {
+	case TargetOSLinux:
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, "/.local/bin")
+	case TargetOSWindows:
+		return "C:\\Program Files (x86)\\Godot"
+	case TargetOSMacOS:
+		return "/Applications/Godot"
+	}
+	return ""
+}
+
 func NewDownloader(targetOS TargetOS, logger logging.Logger, options *DownloaderOptions) *Downloader {
 	var url string = options.DownloadRepositoryURL
 	if url == "" {
@@ -33,15 +47,7 @@ func NewDownloader(targetOS TargetOS, logger logging.Logger, options *Downloader
 	}
 	var binDir string = options.BinDir
 	if binDir == "" {
-		switch targetOS {
-		case TargetOSLinux:
-			home, _ := os.UserHomeDir()
-			binDir = filepath.Join(home, "/.local/bin")
-		case TargetOSWindows:
-			binDir = "C:\\Program Files (x86)\\Godot"
-		case TargetOSMacOS:
-			binDir = "/Applications/Godot"
-		}
+		DefaultBinDir(targetOS)
 	}
 
 	return &Downloader{
@@ -51,26 +57,29 @@ func NewDownloader(targetOS TargetOS, logger logging.Logger, options *Downloader
 	}
 }
 
-func getRemoteFileFormat(targetOS TargetOS, version string) string {
+// getRemoteFileName returns the name of the Godot package file for the given target OS, version and release.
+func getRemoteFileName(targetOS TargetOS, version string, release string) string {
 	switch targetOS {
 	case TargetOSLinux:
 		if version[0] == '3' {
-			return "Godot_v%s-%s_x11.64.zip"
+			return fmt.Sprintf("Godot_v%s-%s_x11.64.zip", version, release)
 		}
-		return "Godot_v%s-%s_linux.x86_64.zip"
+		return fmt.Sprintf("Godot_v%s-%s_linux.x86_64.zip", version, release)
 	case TargetOSWindows:
-		return "Godot_v%s-%s_win64.exe.zip"
+		return fmt.Sprintf("Godot_v%s-%s_win64.exe.zip", version, release)
 	case TargetOSMacOS:
-		return "Godot_v%s-%s_macos.universal.zip"
+		return fmt.Sprintf("Godot_v%s-%s_macos.universal.zip", version, release)
 	}
 
 	return ""
 }
 
+// DownloadGodot downloads the Godot package for the given target OS, version, and release.
 func (d *Downloader) DownloadGodot(targetOS TargetOS, version string, release string) (string, error) {
 
-	var fileName string = fmt.Sprintf(getRemoteFileFormat(targetOS, version), version, release)
+	var fileName string = getRemoteFileName(targetOS, version, release)
 
+	// Create output file
 	tempDir, _ := os.MkdirTemp("", "godot-build-tools")
 	outFile := filepath.Join(tempDir, fileName)
 	out, err := os.Create(outFile)
@@ -79,6 +88,7 @@ func (d *Downloader) DownloadGodot(targetOS TargetOS, version string, release st
 	}
 	defer out.Close()
 
+	// Calculate download URL
 	downloadURL, err := url.Parse(d.downloadRepositoryURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse download repository URL: %s", err)
@@ -92,18 +102,40 @@ func (d *Downloader) DownloadGodot(targetOS TargetOS, version string, release st
 	downloadURL.Path = path.Join(downloadURL.Path, fileName)
 	d.logger.Debugf("Download URL: %s", downloadURL.String())
 
+	// Download Godot package
 	resp, err := http.Get(downloadURL.String())
 	if err != nil {
 		return "", fmt.Errorf("failed to download Godot: %s", err)
 	}
 	defer resp.Body.Close()
 
+	// Write Godot package to output file
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("failed to write Godot package to output file: %s", err)
 	}
 
 	return outFile, nil
+}
+
+// isTargetOSBin returns true if the given file name is a binary for the given target OS.
+func isTargetOSBin(targetOS TargetOS, fileName string) bool {
+	switch targetOS {
+	case TargetOSLinux:
+		if path.Ext(fileName) == ".x86_64" || path.Ext(fileName) == ".64" {
+			return true
+		}
+	case TargetOSWindows:
+		if path.Ext(fileName) == ".exe" {
+			return true
+		}
+	case TargetOSMacOS:
+		if path.Ext(fileName) == ".universal" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (d *Downloader) UnzipGodot(targetOS TargetOS, godotPackage string) (string, error) {
@@ -114,19 +146,8 @@ func (d *Downloader) UnzipGodot(targetOS TargetOS, godotPackage string) (string,
 
 	// Look for godot binary
 	for _, file := range files {
-		switch targetOS {
-		case TargetOSLinux:
-			if path.Ext(file) == ".x86_64" || path.Ext(file) == ".64" {
-				return file, nil
-			}
-		case TargetOSWindows:
-			if path.Ext(file) == ".exe" {
-				return file, nil
-			}
-		case TargetOSMacOS:
-			if path.Ext(file) == ".universal" {
-				return file, nil
-			}
+		if isTargetOSBin(targetOS, file) {
+			return file, nil
 		}
 	}
 

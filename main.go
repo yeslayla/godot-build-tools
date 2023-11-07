@@ -1,51 +1,31 @@
 package main
 
 import (
-	"os"
-	"runtime"
-
 	"github.com/yeslayla/godot-build-tools/internal"
 	"github.com/yeslayla/godot-build-tools/logging"
+	"github.com/yeslayla/godot-build-tools/steps"
 )
 
 func main() {
 	logger := logging.NewLogger(&logging.LoggerOptions{})
 
-	var targetOS internal.TargetOS
-	switch runtime.GOOS {
-	case "linux":
-		targetOS = internal.TargetOSLinux
-	case "windows":
-		targetOS = internal.TargetOSWindows
-	case "darwin":
-		targetOS = internal.TargetOSMacOS
+	flags := internal.NewBuildFlags(logger)
+	flags.Parse()
+
+	if flags.DebugLog {
+		logger = logging.NewLogger(&logging.LoggerOptions{
+			Debug: true,
+		})
 	}
 
-	GodotSetup(logger, targetOS, "3.3.2", "stable")
+	buildConfig := internal.LoadBuildConfig(logger)
 
-}
+	var targetOS internal.TargetOS = internal.CurrentTargetOS()
 
-func GodotSetup(logger logging.Logger, targetOS internal.TargetOS, version string, release string) (string, bool) {
-	logger.StartGroup("Godot Setup")
-	defer logger.EndGroup()
-	downloader := internal.NewDownloader(internal.TargetOSLinux, logger, &internal.DownloaderOptions{})
-
-	logger.Infof("Downloading Godot")
-	godotPackage, err := downloader.DownloadGodot(internal.TargetOSLinux, version, release)
-	if err != nil {
-		logger.Errorf("Failed to download Godot: %s", err)
-		return "", false
+	if flags.HasStep("godot-setup") {
+		steps.GodotSetup(logger, targetOS, buildConfig.Godot.Version, buildConfig.Godot.Release)
+	} else {
+		logger.Debugf("Skipping godot-setup step")
 	}
-	defer os.Remove(godotPackage)
-	logger.Infof("Godot package: %s", godotPackage)
 
-	logger.Infof("Installing Godot")
-	godotBin, err := downloader.InstallGodot(godotPackage, internal.TargetOSLinux, version, release)
-	if err != nil {
-		logger.Errorf("Failed to install Godot: %s", err)
-		return "", false
-	}
-	logger.Infof("Godot binary: %s", godotBin)
-
-	return godotBin, true
 }

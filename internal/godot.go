@@ -2,45 +2,45 @@ package internal
 
 import "strings"
 
-type Godot4ArgBuilder struct {
+type DefaultGodotArgBuilder struct {
 	args []string
 }
 
-func NewGodot4ArgBuilder(projectDir string) GodotArgBuilder {
-	return &Godot4ArgBuilder{
+func NewGodotArgBuilder(projectDir string) GodotArgBuilder {
+	return &DefaultGodotArgBuilder{
 		args: []string{"--path", projectDir},
 	}
 }
 
-func (b *Godot4ArgBuilder) AddHeadlessFlag() {
+func (b *DefaultGodotArgBuilder) AddHeadlessFlag() {
 	b.args = append(b.args, "--headless")
 }
 
-func (b *Godot4ArgBuilder) AddDebugFlag() {
+func (b *DefaultGodotArgBuilder) AddDebugFlag() {
 	b.args = append(b.args, "--debug")
 }
 
-func (b *Godot4ArgBuilder) AddVerboseFlag() {
+func (b *DefaultGodotArgBuilder) AddVerboseFlag() {
 	b.args = append(b.args, "--verbose")
 }
 
-func (b *Godot4ArgBuilder) AddQuietFlag() {
+func (b *DefaultGodotArgBuilder) AddQuietFlag() {
 	b.args = append(b.args, "--quiet")
 }
 
-func (b *Godot4ArgBuilder) AddDumpGDExtensionInterfaceFlag() {
+func (b *DefaultGodotArgBuilder) AddDumpGDExtensionInterfaceFlag() {
 	b.args = append(b.args, "--dump-gdextension-interface")
 }
 
-func (b *Godot4ArgBuilder) AddDumpExtensionApiFlag() {
+func (b *DefaultGodotArgBuilder) AddDumpExtensionApiFlag() {
 	b.args = append(b.args, "--dump-extension-api")
 }
 
-func (b *Godot4ArgBuilder) AddCheckOnlyFlag() {
+func (b *DefaultGodotArgBuilder) AddCheckOnlyFlag() {
 	b.args = append(b.args, "--check-only")
 }
 
-func (b *Godot4ArgBuilder) AddExportFlag(exportType ExportType) {
+func (b *DefaultGodotArgBuilder) AddExportFlag(exportType ExportType) {
 	switch exportType {
 	case ExportTypeRelease:
 		b.args = append(b.args, "--export")
@@ -51,6 +51,6 @@ func (b *Godot4ArgBuilder) AddExportFlag(exportType ExportType) {
 	}
 }
 
-func (b *Godot4ArgBuilder) GenerateArgs() string {
+func (b *DefaultGodotArgBuilder) GenerateArgs() string {
 	return strings.Join(b.args, " ")
 }
